@@ -1,6 +1,5 @@
 package kafkaingest
 
-import kafkaingest.testkit.KafkaServer
 import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 
 class KafkaIntSpec extends FlatSpecLike with Matchers with BeforeAndAfterAll {

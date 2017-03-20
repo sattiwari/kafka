@@ -2,7 +2,7 @@ package kafkaingest
 
 import java.util.Properties
 
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{Serializer, StringSerializer}
 import org.slf4j.LoggerFactory
 
