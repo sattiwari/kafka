@@ -5,7 +5,7 @@ import java.util.Properties
 
 import org.apache.curator.test.TestingServer
 import org.slf4j.LoggerFactory
-import kafka.server.KafkaConfig
+import kafka.server.{KafkaConfig, KafkaServerStartable}
 
 object KafkaServer {
 
@@ -62,10 +62,22 @@ class KafkaServer {
 //  start a zookeeper server
   val zkServer = new TestingServer(zkPort)
 
+  val config = kafkaConfig(zkServer.getConnectString)
+  log.info("zk connect: " + zkServer.getConnectString)
 
+//  kafka test server
+  val kafkaServer = new KafkaServerStartable(config)
+  val kafkaPort = config.port
 
-  def startup() = ???
+  def startup() = {
+    kafkaServer.startup()
+    log.info(s"started kafka on port $kafkaPort")
+  }
 
-  def close() = ???
+  def close() = {
+    log.info(s"stopping kafka on port $kafkaPort")
+    kafkaServer.shutdown()
+    zkServer.stop()
+  }
 
 }
