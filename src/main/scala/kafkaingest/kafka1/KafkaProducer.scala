@@ -1,4 +1,4 @@
-package kafkaingest.kafka
+package kafkaingest.kafka1
 
 object KafkaProducer {
 
