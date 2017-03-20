@@ -21,7 +21,7 @@ object KafkaServer {
   private def createBrokerConfig(nodeId: Int, port: Int = choosePort(), zkConnect: String,
                                  enableControlledShutdown: Boolean = true): Properties = {
     val props = new Properties()
-    props.put("broker.id", nodeId)
+    props.put("broker.id", nodeId.toString)
     props.put("host.name", "localhost")
     props.put("port", port.toString)
     props.put("logdir", "./target/kafka")
