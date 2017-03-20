@@ -1,4 +1,4 @@
-package kafkaingest.kafka1
+package kafkaingest
 
 // utilities for creating kafka consumer
 object KafkaConsumer {
