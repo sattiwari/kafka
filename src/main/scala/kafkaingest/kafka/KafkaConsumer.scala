@@ -1,8 +1,9 @@
 package kafkaingest.kafka
 
-/**
-  * Created by stiwari on 3/10/2017 AD.
-  */
+// utilities for creating kafka consumer
 object KafkaConsumer {
 
+  object Conf {
+
+  }
 }
