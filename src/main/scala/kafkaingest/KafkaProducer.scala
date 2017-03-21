@@ -2,7 +2,8 @@ package kafkaingest
 
 import java.util.Properties
 
-import org.apache.kafka.clients.producer.ProducerRecord
+import kafka.controller.Callbacks.CallbackBuilder
+import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.serialization.{Serializer, StringSerializer}
 import org.slf4j.LoggerFactory
 
@@ -44,6 +45,11 @@ class KafkaProducer[K, V](props: Properties, keySerializer: Serializer[K], value
     producer.send(kafkaMessage(topic, key, value))
   }
 
+  def sendWithCallback(topic: String, key: K, value: V)(callback: RecordMetadata => Unit): Unit = {
+    log.info(s"sending message to the topic ${topic} key ${key.toString} value ${value.toString}")
+    producer.send(kafkaMessage(topic, key, value), producerCallBack(callback))
+  }
+
   def flush(): Unit = {
     producer.flush()
   }
@@ -51,4 +57,16 @@ class KafkaProducer[K, V](props: Properties, keySerializer: Serializer[K], value
   private def kafkaMessage(topic: String, key: K, value: V): ProducerRecord[K, V] = {
     new ProducerRecord(topic, key, value)
   }
+
+  def close(): Unit = {
+    log.debug("closing producer")
+    producer.close()
+  }
+
+  private def producerCallBack(callback: RecordMetadata => Unit): Callback = {
+    new Callback {
+      override def onCompletion(metadata: RecordMetadata, exception: Exception): Unit = callback(metadata)
+    }
+  }
+
 }
