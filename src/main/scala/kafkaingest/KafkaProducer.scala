@@ -22,11 +22,11 @@ object KafkaProducer {
                   valueSerializer: Serializer[String] = new StringSerializer()) = {
     val props = new Properties()
     props.put("bootstrap.servers", bootstrapServers)
-    props.put("ack", acks)
-    props.put("retries", retries.toString)
-    props.put("batch.size", batchSize.toString)
-    props.put("linger.ms", lingerMs.toString)
-    props.put("buffer.memory", bufferMemory.toString)
+//    props.put("ack", acks)
+//    props.put("retries", retries.toString)
+//    props.put("batch.size", batchSize.toString)
+//    props.put("linger.ms", lingerMs.toString)
+//    props.put("buffer.memory", bufferMemory.toString)
     new KafkaProducer(props, keySerializer, valueSerializer)
   }
   

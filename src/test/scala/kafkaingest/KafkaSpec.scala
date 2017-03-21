@@ -17,7 +17,6 @@ class KafkaSpec extends FlatSpec with Matchers {
       consumer.consume("test"){ (k, v) =>
         println(s"k: $k, v: $v")
       }
-      Thread.sleep(1000)
     })
 
     consumer.close

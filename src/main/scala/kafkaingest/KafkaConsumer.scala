@@ -23,9 +23,6 @@ object KafkaConsumer {
     val props = new Properties()
     props.put("bootstrap.servers", bootstrapServers)
     props.put("group.id", groupId)
-    props.put("enable.auto.commit", enableAutoCommit.toString)
-    props.put("auto.commit.interval.ms", autoCommitInterval.toString)
-    props.put("session.timeout.ms", sessionTimeoutMs.toString)
     new KafkaConsumer(props, keyDeserializer, valueDeserializer)
   }
 
