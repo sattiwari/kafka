@@ -18,9 +18,9 @@ class KafkaIntSpec extends KafkaTestServer {
     var count = 0
 
     log.info("!!::" + count)
-    producer.send("test", "a", "1")
-    producer.send("test", "a", "1")
-    producer.send("test", "a", "1")
+    producer.send("test", "a")
+    producer.send("test", "a")
+    producer.send("test", "a")
     producer.flush()
     log.info("!!!!!!!!")
     Thread.sleep(20000)
