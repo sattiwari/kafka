@@ -10,9 +10,16 @@ class KafkaSpec extends FlatSpec with Matchers {
   }
 
   "Kafka consumer" should "consume" in {
+    val consumer = KafkaConsumer[String, String]()
 
+    (1 to 10).foreach(i => {
+      println("consume")
+      consumer.consume("test"){ (k, v) =>
+        println(s"k: $k, v: $v")
+      }
+      Thread.sleep(1000)
+    })
+
+    consumer.close
   }
-
-
-
 }
