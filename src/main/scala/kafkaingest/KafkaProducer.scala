@@ -34,6 +34,10 @@ class KafkaProducer[K, V](props: Properties, keySerializer: Serializer[K], value
     producer.send(kafkaMessage(topic, key, value))
   }
 
+  def flush(): Unit = {
+    producer.flush()
+  }
+
   private def kafkaMessage(topic: String, key: K, value: V): ProducerRecord[K, V] = {
     new ProducerRecord(topic, key, value)
   }

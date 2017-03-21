@@ -1,17 +1,35 @@
 package kafkaingest
 
-import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
+import org.slf4j.LoggerFactory
 
-class KafkaIntSpec extends FlatSpecLike with Matchers with BeforeAndAfterAll {
-  val kafkaServer = new KafkaServer()
-  val kafkaPort = kafkaServer.kafkaPort
+class KafkaIntSpec extends KafkaTestServer {
+  val log = LoggerFactory.getLogger(getClass)
 
-  override def beforeAll() = {
-    kafkaServer.startup()
-  }
+  "Integration test" should "test" in {
+    val kafkaPort = kafkaServer.kafkaPort
 
-  override def afterAll() = {
-    kafkaServer.close()
+    log.info(s"zk: ${kafkaServer.zkConnect}")
+    log.info(s"kafka server: ${kafkaServer}")
+    log.info(s"kafka port: ${kafkaServer.kafkaPort}")
+
+    val consumer = KafkaConsumer[String, String](bootstrapServers = "localhost" + kafkaPort)
+    val producer = KafkaProducer[String, String](bootstrapServers = "localhost" + kafkaPort)
+
+    var count = 0
+
+    producer.send("test", "a", "1")
+    producer.send("test", "a", "1")
+    producer.send("test", "a", "1")
+
+    producer.flush()
+    Thread.sleep(10000)
+
+    consumer.consume("test"){(_, _) => count += 1}
+    consumer.consume("test"){(_, _) => count += 1}
+    consumer.consume("test"){(_, _) => count += 1}
+
+    println(count)
+    consumer.close
   }
 
 }
