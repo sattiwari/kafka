@@ -15,9 +15,6 @@ object KafkaConsumer {
 
   def apply[K, V](bootstrapServers: String = "localhost:9092",
                   groupId: String = "test",
-                  enableAutoCommit: Boolean = true,
-                  autoCommitInterval: Int = 1000,
-                  sessionTimeoutMs: Int = 30000,
                   keyDeserializer: Deserializer[String] = new StringDeserializer(),
                   valueDeserializer: Deserializer[String] = new StringDeserializer()) = {
     val props = new Properties()
