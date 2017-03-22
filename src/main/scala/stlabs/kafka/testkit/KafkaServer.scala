@@ -1,11 +1,11 @@
-package stlabs.kafka
+package stlabs.kafka.testkit
 
 import java.net.ServerSocket
 import java.util.Properties
 
+import kafka.server.{KafkaConfig, KafkaServerStartable}
 import org.apache.curator.test.TestingServer
 import org.slf4j.LoggerFactory
-import kafka.server.{KafkaConfig, KafkaServerStartable}
 
 object KafkaServer {
 
