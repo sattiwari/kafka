@@ -4,12 +4,14 @@ import java.util.Properties
 
 import com.typesafe.config.Config
 import kafka.controller.Callbacks.CallbackBuilder
+import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata}
 import org.apache.kafka.common.serialization.{Serializer, StringSerializer}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
+import kafkaingest.TypesafeConfigExtensions._
 
 object KafkaProducer {
 
@@ -32,7 +34,11 @@ object KafkaProducer {
     props.put("batch.size", batchSize.toString)
     props.put("linger.ms", lingerMs.toString)
     props.put("buffer.memory", bufferMemory.toString)
-    new KafkaProducer(props, keySerializer, valueSerializer)
+    apply(props, keySerializer, valueSerializer)
+  }
+
+  def apply[K, V](config: Config, keySerializer: Serializer[K], valueSerializer: Serializer[V]) = {
+    apply(config.toProperties, keySerializer, valueSerializer)
   }
   
 }
@@ -40,7 +46,7 @@ object KafkaProducer {
 class KafkaProducer[K, V](props: Properties, keySerializer: Serializer[K], valueSerializer: Serializer[V]) {
   import org.apache.kafka.clients.producer.{KafkaProducer => JKafkaProducer}
 
-  val log = LoggerFactory.getLogger(getClass)
+  private val log = LoggerFactory.getLogger(getClass)
 
   val producer = new JKafkaProducer[K, V](props, keySerializer, valueSerializer)
 
