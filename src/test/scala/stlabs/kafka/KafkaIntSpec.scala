@@ -1,4 +1,4 @@
-package kafkaingest
+package stlabs.kafka
 
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.LoggerFactory

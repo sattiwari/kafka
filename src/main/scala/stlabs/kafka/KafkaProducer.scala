@@ -1,9 +1,9 @@
-package kafkaingest
+package stlabs.kafka
 
 import java.util.Properties
 
 import com.typesafe.config.Config
-import kafkaingest.TypesafeConfigExtensions._
+import TypesafeConfigExtensions._
 import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata, KafkaProducer => JKafkaProducer}
 import org.apache.kafka.common.serialization.Serializer
 import org.slf4j.LoggerFactory

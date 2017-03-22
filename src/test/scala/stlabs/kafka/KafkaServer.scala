@@ -1,4 +1,4 @@
-package kafkaingest
+package stlabs.kafka
 
 import java.net.ServerSocket
 import java.util.Properties

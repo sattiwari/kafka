@@ -1,4 +1,4 @@
-package kafkaingest
+package stlabs.kafka
 
 import org.apache.kafka.clients.producer.ProducerRecord
 
