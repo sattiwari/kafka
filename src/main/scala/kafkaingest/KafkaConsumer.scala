@@ -2,7 +2,8 @@ package kafkaingest
 
 import java.util.Properties
 
-import org.apache.kafka.clients.consumer.ConsumerRecords
+import com.typesafe.config.Config
+import kafkaingest.TypesafeConfigExtensions._
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.serialization.{Deserializer, StringDeserializer}
 import org.slf4j.LoggerFactory
@@ -29,25 +30,25 @@ object KafkaConsumer {
     new KafkaConsumer(props, keyDeserializer, valueDeserializer)
   }
 
+  def apply[K, V](config: Config, keyDeserializer: Deserializer[K], valueDeserializer: Deserializer[V]): KafkaConsumer[K, V] = {
+    new KafkaConsumer(config.toProperties, keyDeserializer, valueDeserializer)
+  }
+
 }
 
 class KafkaConsumer[K, V](props: Properties, keyDeserializer: Deserializer[K], valueDeserializer: Deserializer[V]) {
   import org.apache.kafka.clients.consumer.{KafkaConsumer => JKafkaConsumer}
+
   import scala.collection.JavaConversions._
 
   val log = LoggerFactory.getLogger(getClass)
 
   val consumer = new JKafkaConsumer[K, V](props, keyDeserializer, valueDeserializer)
 
-  def consume(topic: String)(write: (K, V) => Unit) = {
-    log.info("consuming")
-    consumer.subscribe(List(topic))
+  def subscribe(topics: List[String]): Unit = consumer.subscribe(topics)
 
-    val records: ConsumerRecords[K, V] = consumer.poll(100)
-    for(record <- records.iterator()) {
-      log.info(s"received message from topic ${topic}")
-      write(record.key(), record.value())
-    }
+  def consume(timeout: Long) = {
+    consumer.poll(timeout)
   }
 
   def close = {
