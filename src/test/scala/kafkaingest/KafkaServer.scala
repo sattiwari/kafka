@@ -9,14 +9,6 @@ import kafka.server.{KafkaConfig, KafkaServerStartable}
 
 object KafkaServer {
 
-  protected def kafkaConfig(zkConnectString: String) = {
-    val propsI = createBrokerConfigs(1, zkConnectString).iterator
-    assert(propsI.hasNext)
-    val props = propsI.next()
-    assert(props.containsKey("zookeeper.connect"))
-    new KafkaConfig(props)
-  }
-
 //  create test config for the given node id
   private def createBrokerConfig(nodeId: Int, port: Int = choosePort(), zkConnect: String,
                                  enableControlledShutdown: Boolean = true): Properties = {
@@ -31,16 +23,21 @@ object KafkaServer {
     props
   }
 
-  private def createBrokerConfigs(numConfigs: Int, zkConnect: String, enableControlledShutdown: Boolean = true): List[Properties] = {
-    (choosePorts(numConfigs).zipWithIndex).map { case (port, node) =>
-      createBrokerConfig(node, port, zkConnect, enableControlledShutdown)
-    }
+  protected def brokerConfig(zkConnect: String, enableControlledShutdown: Boolean = true): ((Int, Int)) => Properties = {
+    case (port, node) => createBrokerConfig(node, port, zkConnect, enableControlledShutdown)
   }
 
+  protected def portConfig(zkConnect: String, enableControlledShutdown: Boolean = true): ((Int, Int)) => KafkaConfig = {
+    brokerConfig(zkConnect, enableControlledShutdown) andThen KafkaConfig.apply
+  }
 
-  private def choosePort() = choosePorts(1).head
+  protected def randomConfigs(num: Int, zkConnect: String, enableControlledShutdown: Boolean = true): List[KafkaConfig] = {
+    choosePorts(num).zipWithIndex.map(portConfig(zkConnect, enableControlledShutdown))
+  }
 
-  private def choosePorts(count: Int): List[Int] = {
+  protected def choosePort(): Int = choosePorts(1).head
+
+  protected def choosePorts(count: Int): List[Int] = {
     val sockets = (0 until count).map(i => new ServerSocket(i))
     val socketList = sockets.toList
     val ports = socketList.map(_.getLocalPort)
@@ -50,24 +47,21 @@ object KafkaServer {
 
 }
 
-class KafkaServer {
+class KafkaServer(val kafkaPort: Int = KafkaServer.choosePort(), val zkPort: Int = KafkaServer.choosePort()) {
 
   import KafkaServer._
 
   val log = LoggerFactory.getLogger(getClass)
 
-  val zkPort = choosePort()
   val zkConnect = "127.0.0.1:" + zkPort
 
 //  start a zookeeper server
   val zkServer = new TestingServer(zkPort)
-
-  val config = kafkaConfig(zkServer.getConnectString)
   log.info("zk connect: " + zkServer.getConnectString)
 
 //  kafka test server
+  val config = portConfig(zkServer.getConnectString)((kafkaPort, 1))
   val kafkaServer = new KafkaServerStartable(config)
-  val kafkaPort = config.port
 
   def startup() = {
     kafkaServer.startup()
