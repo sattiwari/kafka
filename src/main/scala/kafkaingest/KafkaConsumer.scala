@@ -11,28 +11,28 @@ object KafkaConsumer {
 
   def apply[K, V](props: Properties): JKafkaConsumer[K, V] = new JKafkaConsumer[K, V](props)
 
-  def apply[K, V](props: Properties, keyDeserializer: Deserializer[K], valueDeserializer: Deserializer[V]) = {
+  def apply[K, V](props: Properties, keyDeserializer: Deserializer[K], valueDeserializer: Deserializer[V]): JKafkaConsumer[K, V] = {
     new JKafkaConsumer[K, V](props, keyDeserializer, valueDeserializer)
   }
 
-  def apply[K, V](bootstrapServers: String = "localhost:9092",
+  def apply[K, V](keyDeserializer: Deserializer[K],
+                  valueDeserializer: Deserializer[V],
+                  bootstrapServers: String = "localhost:9092",
                   groupId: String = "test",
                   enableAutoCommit: Boolean = true,
                   autoCommitInterval: Int = 1000,
-                  sessionTimeoutMs: Int = 30000,
-                  keyDeserializer: Deserializer[String] = new StringDeserializer(),
-                  valueDeserializer: Deserializer[String] = new StringDeserializer()) = {
+                  sessionTimeoutMs: Int = 30000): JKafkaConsumer[K, V] = {
     val props = new Properties()
     props.put("bootstrap.servers", bootstrapServers)
     props.put("group.id", groupId)
     props.put("enable.auto.commit", enableAutoCommit.toString)
     props.put("auto.commit.interval.ms", autoCommitInterval.toString)
     props.put("session.timeout.ms", sessionTimeoutMs.toString)
-    new JKafkaConsumer(props, keyDeserializer, valueDeserializer)
+    apply(props, keyDeserializer, valueDeserializer)
   }
 
   def apply[K, V](config: Config): JKafkaConsumer[K, V] = {
-    new JKafkaConsumer(config.toProperties)
+    apply(config.toProperties)
   }
 
 }

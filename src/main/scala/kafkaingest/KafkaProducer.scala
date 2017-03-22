@@ -3,35 +3,32 @@ package kafkaingest
 import java.util.Properties
 
 import com.typesafe.config.Config
-import kafka.controller.Callbacks.CallbackBuilder
-import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata}
-import org.apache.kafka.common.serialization.{Serializer, StringSerializer}
+import kafkaingest.TypesafeConfigExtensions._
+import org.apache.kafka.clients.producer.{Callback, ProducerRecord, RecordMetadata, KafkaProducer => JKafkaProducer}
+import org.apache.kafka.common.serialization.Serializer
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
-import kafkaingest.TypesafeConfigExtensions._
-import org.apache.kafka.clients.producer.{KafkaProducer => JKafkaProducer}
 
 object KafkaProducer {
 
-  def apply[K, V](producer: JKafkaProducer[K, V]) = new KafkaProducer(producer)
+  def apply[K, V](producer: JKafkaProducer[K, V]): KafkaProducer[K, V] = new KafkaProducer(producer)
 
-  def apply[K, V](props: Properties) = apply(new JKafkaProducer[K, V](props))
+  def apply[K, V](props: Properties): KafkaProducer[K, V] = apply(new JKafkaProducer[K, V](props))
 
-  def apply[K, V](props: Properties, keySerializer: Serializer[K], valueSerializer: Serializer[V]) = {
+  def apply[K, V](props: Properties, keySerializer: Serializer[K], valueSerializer: Serializer[V]): KafkaProducer[K, V] = {
     apply(new JKafkaProducer[K, V](props, keySerializer, valueSerializer))
   }
 
-  def apply[K, V](bootstrapServers: String = "localhost:9092",
+  def apply[K, V](keySerializer: Serializer[K],
+                  valueSerializer: Serializer[V],
+                  bootstrapServers: String = "localhost:9092",
                   acks: String = "all",
                   retries: Int = 0,
                   batchSize: Int = 16384,
                   lingerMs: Int = 1,
-                  bufferMemory: Int = 33554432,
-                  keySerializer: Serializer[String] = new StringSerializer(),
-                  valueSerializer: Serializer[String] = new StringSerializer()) = {
+                  bufferMemory: Int = 33554432): KafkaProducer[K, V] = {
     val props = new Properties()
     props.put("bootstrap.servers", bootstrapServers)
     props.put("acks", acks)
@@ -42,7 +39,7 @@ object KafkaProducer {
     apply(props, keySerializer, valueSerializer)
   }
 
-  def apply[K, V](config: Config) = {
+  def apply[K, V](config: Config): KafkaProducer[K, V] = {
     apply(config.toProperties)
   }
   

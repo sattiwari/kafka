@@ -1,39 +1,43 @@
 package kafkaingest
 
+import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.LoggerFactory
+
+import scala.collection.JavaConversions._
+import scala.util.Random
 
 class KafkaIntSpec extends KafkaTestServer {
   val log = LoggerFactory.getLogger(getClass)
 
-  "Integration test" should "test" in {
+  "Kafka Client" should "send and receive" in {
     val kafkaPort = kafkaServer.kafkaPort
 
     log.info(s"zk: ${kafkaServer.zkConnect}")
     log.info(s"kafka server: ${kafkaServer}")
     log.info(s"kafka port: ${kafkaServer.kafkaPort}")
 
-    val consumer = KafkaConsumer[String, String](bootstrapServers = "localhost:" + kafkaPort)
-    val producer = KafkaProducer[String, String](bootstrapServers = "localhost:" + kafkaPort)
+    val topic = randomString(5)
+    val consumer = KafkaConsumer(new StringDeserializer(), new StringDeserializer(), bootstrapServers = "localhost:" + kafkaPort)
+    val producer = KafkaProducer(new StringSerializer(), new StringSerializer(), bootstrapServers = "localhost:" + kafkaPort)
 
-    var count = 0
+    consumer.subscribe(List(topic))
+    val records1 = consumer.poll(1000)
+    records1.count() shouldEqual 0
 
-    log.info("!!::" + count)
-    producer.send("test", "a")
-    producer.send("test", "a")
-    producer.send("test", "a")
+    log.info("Kafka producer connecting on port: [{}]", kafkaPort)
+    producer.send(KafkaProducerRecord(topic, Some("key"), "value"))
     producer.flush()
-    log.info("!!!!!!!!")
-    Thread.sleep(20000)
-    consumer.consume("test") { (_, _) => count += 1 }
-    consumer.consume("test") { (_, _) => count += 1 }
-    consumer.consume("test") { (_, _) => count += 1 }
-    consumer.consume("test") { (_, _) => count += 1 }
-    consumer.consume("test") { (_, _) => count += 1 }
-    log.info("!!" + count)
 
+    val records2 = consumer.poll(1000)
+    records2.count() shouldEqual 1
 
-    assert(count == 3)
-    consumer.close
+    producer.close()
+    consumer.close()
+  }
+
+  def randomString(length: Int) = {
+    val random = new Random()
+    random.alphanumeric.take(length).mkString
   }
 
 }
