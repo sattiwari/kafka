@@ -6,6 +6,6 @@ lazy val commonSettings = Seq(
 lazy val scalaKafkaClient = project.in(file("client"))
   .settings(commonSettings: _*)
 
-lazy val kafkaTestkit = project.in(file("testkit")).dependsOn(scalaKafkaClient)
+lazy val kafkaTestkit = project.in(file("testkit")).dependsOn(scalaKafkaClient % "test")
   .settings(commonSettings: _*)
     
