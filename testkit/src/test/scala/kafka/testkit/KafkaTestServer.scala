@@ -1,4 +1,4 @@
-package stlabs.kafka
+package kafka.testkit
 
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import stlabs.kafka.testkit.KafkaServer

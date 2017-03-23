@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 
 object KafkaServer {
 
-//  create test config for the given node id
+  //  create test config for the given node id
   private def createBrokerConfig(nodeId: Int, port: Int = choosePort(), zkConnect: String,
                                  enableControlledShutdown: Boolean = true): Properties = {
     val props = new Properties()
@@ -55,11 +55,11 @@ class KafkaServer(val kafkaPort: Int = KafkaServer.choosePort(), val zkPort: Int
 
   val zkConnect = "127.0.0.1:" + zkPort
 
-//  start a zookeeper server
+  //  start a zookeeper server
   val zkServer = new TestingServer(zkPort)
   log.info("zk connect: " + zkServer.getConnectString)
 
-//  kafka test server
+  //  kafka test server
   val config = portConfig(zkServer.getConnectString)((kafkaPort, 1))
   val kafkaServer = new KafkaServerStartable(config)
 

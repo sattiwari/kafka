@@ -1,25 +1,11 @@
-name := "kafka"
-
-version := "1.0"
-
-scalaVersion := "2.11.8"
-
-val akkaVersion = "2.4.0"
-val slf4jVersion = "1.7.12"
-
-libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-
-  "org.apache.kafka" % "kafka-clients" % "0.10.2.0",
-  "org.slf4j" % "slf4j-api" % slf4jVersion,
-  "org.slf4j" % "log4j-over-slf4j" % slf4jVersion,
-  "ch.qos.logback" % "logback-classic" % "1.1.3",
-  "org.apache.kafka" %% "kafka" % "0.10.2.0"
-    exclude("log4j", "log4j")
-    exclude("org.slf4j", "slf4j-log4j12"),
-
-  //Test deps
-  "org.scalatest" % "scalatest_2.11" % "3.0.0-M14" % "test",
-  "org.apache.curator" % "curator-test" % "2.7.0" //3.0.0
+lazy val commonSettings = Seq(
+  organization := "com.stlabs",
+  scalaVersion := "2.11.8"
 )
+
+lazy val scalaKafkaClient = project.in(file("client"))
+  .settings(commonSettings: _*)
+
+lazy val kafkaTestkit = project.in(file("testkit")).dependsOn(scalaKafkaClient)
+  .settings(commonSettings: _*)
     

@@ -1,10 +1,11 @@
-package stlabs.kafka
+package kafka.testkit
 
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.LoggerFactory
+import stlabs.kafka.{KafkaConsumer, KafkaProducer, KafkaProducerRecord}
 
-import scala.collection.JavaConversions._
 import scala.util.Random
+import scala.collection.JavaConversions._
 
 class KafkaIntSpec extends KafkaTestServer {
   val log = LoggerFactory.getLogger(getClass)

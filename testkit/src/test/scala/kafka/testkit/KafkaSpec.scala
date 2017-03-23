@@ -1,4 +1,4 @@
-package stlabs.kafka
+package kafka.testkit
 
 import org.scalatest.{FlatSpec, Matchers}
 
