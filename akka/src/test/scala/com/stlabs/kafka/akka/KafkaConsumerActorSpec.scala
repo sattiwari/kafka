@@ -26,14 +26,15 @@ class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with K
     KafkaConsumerActor.Conf(
       ConfigFactory.parseString(
         s"""
-           |bootstrap.servers = "localhost:${kafkaServer.kafkaPort}",
-           |group.id = "test",
-           |key.deserializer = "org.apache.kafka.serialization.StringDeserializer",
-           |value.deserializer = "org.apache.kafka.serialization.StringDeserializer"
+           |bootstrap.servers = "localhost:${kafkaServer.kafkaPort}"
+           |group.id = "test"
+           |key.deserializer = "org.apache.kafka.common.serialization.StringDeserializer"
+           |value.deserializer = "org.apache.kafka.common.serialization.StringDeserializer"
+           |auto.offset.reset = "earliest"
          """.stripMargin), List(topic))
   }
 
-  "KafkaConsumerActor in self managed offsets mode" should "consume a sequence of messages" in {
+  "KafkaConsumerActor in self managed offsets mode" should "consume a message" in {
 
     val kafkaPort = kafkaServer.kafkaPort
     val topic = randomString(5)
@@ -41,22 +42,13 @@ class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with K
     log.info(s"using topic [$topic] and [$kafkaPort]")
 
     val producer = KafkaProducer(new StringSerializer(), new StringSerializer(), bootstrapServers = "localhost:" + kafkaPort)
-    val consumer = system.actorOf(KafkaActor.consumer(consumerConf(topic), testActor), "consumer")
-
     producer.send(KafkaProducerRecord(topic, None, "value"))
     producer.flush()
 
-    log.info(s"ready to poll")
-
+    val consumer = system.actorOf(KafkaActor.consumer(consumerConf(topic), testActor), "consumer")
     consumer ! Subscribe()
 
-    Thread.sleep(5000)
-    producer.send(KafkaProducerRecord(topic, None, "value"))
-
-    Thread.sleep(5000)
-    producer.send(KafkaProducerRecord(topic, None, "value"))
-
-    implicit val timeout: FiniteDuration = 120.seconds
+    implicit val timeout: FiniteDuration = 30.seconds
     expectMsgClass(timeout, classOf[Records[String, String]])
 
   }
