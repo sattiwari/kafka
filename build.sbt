@@ -8,4 +8,6 @@ lazy val scalaKafkaClient = project.in(file("client"))
 
 lazy val kafkaTestkit = project.in(file("testkit")).dependsOn(scalaKafkaClient % "test")
   .settings(commonSettings: _*)
-    
+
+lazy val scalaKafkaClientAkka = project.in(file("akka")).dependsOn(scalaKafkaClient).dependsOn(kafkaTestkit % "test")
+  .settings(commonSettings: _*)

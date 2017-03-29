@@ -1,9 +1,9 @@
 package kafka.testkit
 
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FlatSpecLike, Matchers}
 import stlabs.kafka.testkit.KafkaServer
 
-trait KafkaTestServer extends FlatSpec with Matchers with BeforeAndAfterAll {
+trait KafkaTestServer extends FlatSpecLike with Matchers with BeforeAndAfterAll {
   val kafkaServer = new KafkaServer()
 
   override def beforeAll(): Unit = {
@@ -13,5 +13,4 @@ trait KafkaTestServer extends FlatSpec with Matchers with BeforeAndAfterAll {
   override def afterAll(): Unit = {
     kafkaServer.close()
   }
-
 }
