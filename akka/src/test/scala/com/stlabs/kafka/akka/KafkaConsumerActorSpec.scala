@@ -2,7 +2,7 @@ package com.stlabs.kafka.akka
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
-import com.stlabs.kafka.akka.KafkaConsumerActor.{Poll, Records}
+import com.stlabs.kafka.akka.KafkaConsumerActor.{Poll, Records, Subscribe}
 import com.typesafe.config.ConfigFactory
 import kafka.testkit.KafkaTestServer
 import org.apache.kafka.common.serialization.StringSerializer
@@ -33,7 +33,7 @@ class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with K
          """.stripMargin), List(topic))
   }
 
-  "KafkaConsumerActor in manual commit mode" should "consume a sequence of messages" in {
+  "KafkaConsumerActor in self managed offsets mode" should "consume a sequence of messages" in {
 
     val kafkaPort = kafkaServer.kafkaPort
     val topic = randomString(5)
@@ -46,10 +46,9 @@ class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with K
     producer.send(KafkaProducerRecord(topic, None, "value"))
     producer.flush()
 
-    Thread.sleep(3000)
     log.info(s"ready to poll")
 
-    consumer ! Poll
+    consumer ! Subscribe()
 
     Thread.sleep(5000)
     producer.send(KafkaProducerRecord(topic, None, "value"))

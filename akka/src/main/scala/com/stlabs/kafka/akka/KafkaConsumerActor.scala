@@ -1,5 +1,8 @@
 package com.stlabs.kafka.akka
 
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
+
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.kafka.clients.consumer.{ConsumerRecords, OffsetAndMetadata}
@@ -48,24 +51,58 @@ object KafkaConsumerActor {
   }
 
   sealed trait Command
-  case class Reset(offsets: Offsets) extends Command
+  case class Subscribe(offsets: Option[Offsets] = None) extends Command
   case class ConfirmOffsets(offsets: Offsets, commit: Boolean = false) extends Command
+  private case object Poll extends Command
+  case object Unsubscribe extends Command
 
-  case object Poll extends Command
+  private[akka] class ClientCache[K, V](unconfirmedTimeoutSecs: Long, maxBuffer: Int) {
+    var unconfirmed: Option[Records[K, V]] = None
+    var buffer = new scala.collection.mutable.Queue[Records[K, V]]()
+    var deliveryTime: Option[LocalDateTime] = None
+
+    def isFull() = buffer.size >= maxBuffer
+
+    def bufferRecords(records: Records[K, V]) = buffer += records
+
+    def getRecordsToDeliver(): Option[Records[K, V]] = {
+      if(unconfirmed.isEmpty && buffer.nonEmpty) {
+        val record = buffer.dequeue()
+        unconfirmed = Some(record)
+        deliveryTime = Some(LocalDateTime.now())
+        Some(record)
+      }
+      else None
+    }
+
+    def getRedeliveryRecords(): Records[K, V] = {
+      assert(unconfirmed.isDefined)
+      deliveryTime = Some(LocalDateTime.now())
+      unconfirmed.get
+    }
+
+    def isMessageTimeout(): Boolean = {
+      deliveryTime match {
+        case Some(time) =>
+          time plus (unconfirmedTimeoutSecs, ChronoUnit.SECONDS) isBefore (LocalDateTime.now())
+
+        case None =>
+          false
+      }
+    }
+
+    def confirm(): Unit = {
+      unconfirmed = None
+    }
+
+    def reset(): Unit = {
+      unconfirmed = None
+      buffer.clear()
+      deliveryTime = None
+    }
+  }
 
   case class Conf[K, V](consumerConfig: Config, topics: List[String])
-
-  object State {
-    def empty[K, V]: State[K, V] = State(None, None)
-  }
-
-  case class State[K, V](onTheFly: Option[Records[K, V]], buffer: Option[Records[K, V]]) {
-
-    def offsetsAreOld(offsets: Offsets): Boolean =
-      onTheFly.exists(_ isNewerThan offsets)
-
-    def isFull: Boolean = onTheFly.nonEmpty && buffer.nonEmpty
-  }
 
   val defaultConsumerConfig: Config =
     ConfigFactory.parseMap(Map(
@@ -81,75 +118,41 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K
   private val consumer = KafkaConsumer[K, V](kafkaConfig)
   private val trackPartitions = TrackPartitions(consumer)
 
-  consumer.subscribe(conf.topics, trackPartitions)
-
-  log.info(s"starting consumer for topics [${conf.topics.mkString(",")}]")
-
-  private var state: State[K, V] = State.empty
+  private val clientCache: ClientCache[K, V] = new ClientCache[K, V](1, 10)
 
   override def receive: Receive = {
 
-    case Reset(offsets) =>
-      log.info(s"resetting offsets ${conf.topics}, ${offsets}")
-      trackPartitions.offsets = offsets.offsetsMap
-      state = State.empty
+    case Subscribe(offsets) =>
+      log.info(s"subscribing to topics ${conf.topics}")
+      consumer.subscribe(conf.topics, trackPartitions)
+      offsets.foreach(o => trackPartitions.offsets = o.offsetsMap)
+      clientCache.reset()
       schedulePoll()
-
-    case Poll if state.isFull =>
-      log.info(s"buffer is full, not gonna poll ${conf.topics}")
 
     case Poll =>
       log.info(s"poll")
-      poll() foreach { records =>
-        state = appendRecords(state, records)
+      if(clientCache.isMessageTimeout()) {
+        log.info("message timed out, redilivering")
+        sendRecords(clientCache.getRedeliveryRecords())
       }
+      if(clientCache.isFull()) log.info(s"Buffers are full. Not gonna poll. ${conf.topics}")
+      else {
+        poll() foreach { records =>
+          clientCache.bufferRecords(records)
+        }
+      }
+      clientCache.getRecordsToDeliver().foreach(records => sendRecords(records))
 
     case ConfirmOffsets(offsets, commit) =>
       log.info(s"confirm offsets ${conf.topics}, ${offsets}")
-      if(state.offsetsAreOld(offsets)) {
-        log.info(s"offsets are old, resending ${conf.topics}")
-        resendCurrentRecords(state)
-      } else {
-        log.info(s"offsets are new ${conf.topics}")
-        state = sendNextRecords(state)
-        if(commit) {
-          commitOffsets(offsets)
-        }
-      }
-  }
+      clientCache.confirm()
+      clientCache.getRecordsToDeliver().foreach(records => sendRecords(records))
+      if(commit) commitOffsets(offsets)
 
-  private def sendNextRecords(currentState: State[K, V]): State[K, V] = {
-    currentState.buffer.orElse(poll()) match {
-      case Some(records) =>
-        log.debug(s"got next records, sending")
-        sendRecords(records)
-        currentState.copy(onTheFly = Some(records), buffer = poll())
-
-      case None =>
-        log.debug(s"no records available")
-        State.empty
-    }
-  }
-
-  private def resendCurrentRecords(currentState: State[K, V]) = {
-    currentState.onTheFly.foreach { rs =>
-      log.debug(s"resending current records")
-      sendRecords(rs)
-    }
-  }
-
-  private def appendRecords(currentState: State[K, V], records: Records[K, V]) = {
-    (currentState.onTheFly, currentState.buffer) match {
-      case (None, None) =>
-        sendRecords(records)
-        State(Some(records), None)
-
-      case (Some(_), None) =>
-        currentState.copy(buffer = Some(records))
-
-      case _ =>
-        currentState
-    }
+    case Unsubscribe =>
+      log.info("unsubscribing")
+      consumer.unsubscribe()
+      clientCache.reset()
   }
 
   private def poll(): Option[Records[K, V]] = {
@@ -181,7 +184,7 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K
 
   private def schedulePoll(): Unit = {
     log.info(s"scheduled poll")
-    context.system.scheduler.scheduleOnce(500 millis, self, Poll)(context.dispatcher)
+    context.system.scheduler.scheduleOnce(3000 millis, self, Poll)(context.dispatcher)
   }
 
   private def pollImmediate(): Unit = {
