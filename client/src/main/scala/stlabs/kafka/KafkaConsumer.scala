@@ -36,6 +36,11 @@ object KafkaConsumer {
       props.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, strategy.toString)
       this
     }
+
+    def withConf(config: Config): Conf[K, V] = {
+      props.putAll(config.toProperties)
+      this
+    }
   }
 
   def apply[K, V](conf: Conf[K, V]): JKafkaConsumer[K, V] =
