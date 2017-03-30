@@ -3,7 +3,7 @@ package com.stlabs.kafka.akka
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.kafka.clients.consumer.{ConsumerRecords, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
@@ -43,18 +43,15 @@ object KafkaConsumerActor {
       if(hasType[K1, V2]) Some(this.asInstanceOf[Records[K1, V2]])
       else None
 
-    def isNewerThan(that: Offsets): Boolean =
-      offsets.forAllOffsets(that)(_ > _)
-
     def values: Seq[V] = records.toList.map(_.value())
 
   }
 
-  sealed trait Command
-  case class Subscribe(offsets: Option[Offsets] = None) extends Command
-  case class ConfirmOffsets(offsets: Offsets, commit: Boolean = false) extends Command
-  private case object Poll extends Command
-  case object Unsubscribe extends Command
+//  sealed trait Command
+  case class Subscribe(offsets: Option[Offsets] = None)
+  private case object Poll
+  case object Unsubscribe
+  case class Confirm(offsets: Option[Offsets] = None)
 
   private[akka] class ClientCache[K, V](unconfirmedTimeoutSecs: Long, maxBuffer: Int) {
     var unconfirmed: Option[Records[K, V]] = None
@@ -65,7 +62,7 @@ object KafkaConsumerActor {
 
     def bufferRecords(records: Records[K, V]) = buffer += records
 
-    def getRecordsToDeliver(): Option[Records[K, V]] = {
+    def recordsForDelivery(): Option[Records[K, V]] = {
       if(unconfirmed.isEmpty && buffer.nonEmpty) {
         val record = buffer.dequeue()
         unconfirmed = Some(record)
@@ -81,12 +78,12 @@ object KafkaConsumerActor {
       unconfirmed.get
     }
 
-    def isMessageTimeout(): Boolean = {
+    def confirmationTimeout(): Boolean = {
       deliveryTime match {
-        case Some(time) =>
+        case Some(time) if unconfirmed.isDefined =>
           time plus (unconfirmedTimeoutSecs, ChronoUnit.SECONDS) isBefore (LocalDateTime.now())
 
-        case None =>
+        case _ =>
           false
       }
     }
@@ -104,10 +101,9 @@ object KafkaConsumerActor {
 
   case class Conf[K, V](conf: KafkaConsumer.Conf[K, V], topics: List[String])
 
-  val defaultConsumerConfig: Config =
-    ConfigFactory.parseMap(Map(
-      "enable.auto.commit" -> "false"
-    ))
+  def props[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K, V], nextActor: ActorRef) = {
+    Props(new KafkaConsumerActor[K, V](conf, nextActor))
+  }
 
 }
 
@@ -130,7 +126,7 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K
 
     case Poll =>
       log.info(s"poll")
-      if(clientCache.isMessageTimeout()) {
+      if(clientCache.confirmationTimeout()) {
         log.info("message timed out, redilivering")
         sendRecords(clientCache.getRedeliveryRecords())
       }
@@ -140,13 +136,16 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K
           clientCache.bufferRecords(records)
         }
       }
-      clientCache.getRecordsToDeliver().foreach(records => sendRecords(records))
+      clientCache.recordsForDelivery().foreach(records => sendRecords(records))
 
-    case ConfirmOffsets(offsets, commit) =>
-      log.info(s"confirm offsets ${conf.topics}, ${offsets}")
+    case Confirm(offsets0) =>
+      log.info(s"confirm offsets ${conf.topics}, ${offsets0}")
       clientCache.confirm()
-      clientCache.getRecordsToDeliver().foreach(records => sendRecords(records))
-      if(commit) commitOffsets(offsets)
+      offsets0 match {
+        case Some(offsets) => commitOffsets(offsets)
+        case None =>
+      }
+      clientCache.recordsForDelivery().foreach(records => sendRecords(records))
 
     case Unsubscribe =>
       log.info("unsubscribing")

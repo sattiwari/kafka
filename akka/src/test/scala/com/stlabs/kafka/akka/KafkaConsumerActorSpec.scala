@@ -2,7 +2,7 @@ package com.stlabs.kafka.akka
 
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit}
-import com.stlabs.kafka.akka.KafkaConsumerActor.{Poll, Records, Subscribe}
+import com.stlabs.kafka.akka.KafkaConsumerActor.{Confirm, Poll, Records, Subscribe}
 import com.typesafe.config.ConfigFactory
 import kafka.testkit.KafkaTestServer
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
@@ -44,12 +44,35 @@ class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with K
     producer.send(KafkaProducerRecord(topic, None, "value"))
     producer.flush()
 
-    val consumer = system.actorOf(KafkaActor.consumer(consumerConf(topic), testActor), "consumer")
+//    val consumer = system.actorOf(KafkaActor.consumer(consumerConf(topic), testActor), "consumer")
+    val consumer = system.actorOf(KafkaConsumerActor.props(consumerConf(topic), testActor))
     consumer ! Subscribe()
 
     implicit val timeout: FiniteDuration = 30.seconds
     expectMsgClass(timeout, classOf[Records[String, String]])
 
+    consumer ! Confirm(None)
+    expectNoMsg(5.seconds)
+
+  }
+
+  "Kafka Consumer in commit mode" should "consume a sequence of messages" in {
+    val kafkaPort = kafkaServer.kafkaPort
+    val topic = randomString(5)
+    log.info(s"using topic [${topic}] and kafka port [${kafkaPort}]")
+
+    val producer = KafkaProducer(new StringSerializer(), new StringSerializer(), bootstrapServers = "localhost:" + kafkaPort)
+    producer.send(KafkaProducerRecord(topic, None, "value"))
+    producer.flush()
+
+    val consumer = system.actorOf(KafkaConsumerActor.props(consumerConf(topic), testActor))
+    consumer ! Subscribe()
+
+    implicit val timeout: FiniteDuration = 30.seconds
+    expectMsgClass(timeout, classOf[Records[String, String]])
+
+    consumer ! Confirm()
+    expectNoMsg(5.seconds)
   }
 
   def randomString(length: Int): String = new Random().alphanumeric.take(length).mkString
