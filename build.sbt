@@ -11,3 +11,6 @@ lazy val kafkaTestkit = project.in(file("testkit")).dependsOn(scalaKafkaClient %
 
 lazy val scalaKafkaClientAkka = project.in(file("akka")).dependsOn(scalaKafkaClient).dependsOn(kafkaTestkit % "test")
   .settings(commonSettings: _*)
+
+lazy val reactiveKafka = project.in(file("reactive-kafka"))
+  .settings(commonSettings: _*)
