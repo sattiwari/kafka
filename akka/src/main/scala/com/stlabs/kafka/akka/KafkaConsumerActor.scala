@@ -119,16 +119,16 @@ object KafkaConsumerActor {
 class KafkaConsumerActor[K: TypeTag, V: TypeTag](consumerConf: KafkaConsumer.Conf[K, V], actorConf: KafkaConsumerActor.Conf, nextActor: ActorRef) extends Actor with ActorLogging {
   import KafkaConsumerActor._
 
-  private val consumer = KafkaConsumer[K, V](consumerConf.conf)
+  private val consumer = KafkaConsumer[K, V](consumerConf)
   private val trackPartitions = TrackPartitions(consumer)
 
-  private val clientCache: ClientCache[K, V] = new ClientCache[K, V](1, 10)
+  private val clientCache: ClientCache[K, V] = new ClientCache[K, V](actorConf.unconfirmedTimeout, actorConf.bufferSize)
 
   override def receive: Receive = {
 
     case Subscribe(offsets) =>
-      log.info(s"subscribing to topics ${consumerConf.topics}")
-      consumer.subscribe(consumerConf.topics, trackPartitions)
+      log.info(s"subscribing to topics ${actorConf.topics}")
+      consumer.subscribe(actorConf.topics, trackPartitions)
       offsets.foreach(o => trackPartitions.offsets = o.offsetsMap)
       clientCache.reset()
       schedulePoll()
@@ -139,7 +139,7 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](consumerConf: KafkaConsumer.Con
         log.info("message timed out, redilivering")
         sendRecords(clientCache.getRedeliveryRecords())
       }
-      if(clientCache.isFull()) log.info(s"Buffers are full. Not gonna poll. ${consumerConf.topics}")
+      if(clientCache.isFull()) log.info(s"Buffers are full. Not gonna poll. ${actorConf.topics}")
       else {
         poll() foreach { records =>
           clientCache.bufferRecords(records)
@@ -148,7 +148,7 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](consumerConf: KafkaConsumer.Con
       clientCache.recordsForDelivery().foreach(records => sendRecords(records))
 
     case Confirm(offsets0) =>
-      log.info(s"confirm offsets ${consumerConf.topics}, ${offsets0}")
+      log.info(s"confirm offsets ${actorConf.topics}, ${offsets0}")
       clientCache.confirm()
       offsets0 match {
         case Some(offsets) => commitOffsets(offsets)
