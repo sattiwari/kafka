@@ -2,6 +2,7 @@ package kafka.testkit
 
 import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.LoggerFactory
+import stlabs.kafka.KafkaConsumer.Conf
 import stlabs.kafka.{KafkaConsumer, KafkaProducer, KafkaProducerRecord}
 
 import scala.util.Random
@@ -18,7 +19,7 @@ class KafkaIntSpec extends KafkaTestServer {
     log.info(s"kafka port: ${kafkaServer.kafkaPort}")
 
     val topic = randomString(5)
-    val consumer = KafkaConsumer(new StringDeserializer(), new StringDeserializer(), bootstrapServers = "localhost:" + kafkaPort)
+    val consumer = KafkaConsumer(Conf(new StringDeserializer(), new StringDeserializer(), bootstrapServers = "localhost:" + kafkaPort))
     val producer = KafkaProducer(new StringSerializer(), new StringSerializer(), bootstrapServers = "localhost:" + kafkaPort)
 
     consumer.subscribe(List(topic))

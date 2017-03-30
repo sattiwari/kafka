@@ -102,7 +102,7 @@ object KafkaConsumerActor {
     }
   }
 
-  case class Conf[K, V](consumerConfig: Config, topics: List[String])
+  case class Conf[K, V](conf: KafkaConsumer.Conf[K, V], topics: List[String])
 
   val defaultConsumerConfig: Config =
     ConfigFactory.parseMap(Map(
@@ -114,8 +114,7 @@ object KafkaConsumerActor {
 class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K, V], nextActor: ActorRef) extends Actor with ActorLogging {
   import KafkaConsumerActor._
 
-  private val kafkaConfig = defaultConsumerConfig.withFallback(conf.consumerConfig)
-  private val consumer = KafkaConsumer[K, V](kafkaConfig)
+  private val consumer = KafkaConsumer[K, V](conf.conf)
   private val trackPartitions = TrackPartitions(consumer)
 
   private val clientCache: ClientCache[K, V] = new ClientCache[K, V](1, 10)

@@ -5,9 +5,9 @@ import akka.testkit.{ImplicitSender, TestKit}
 import com.stlabs.kafka.akka.KafkaConsumerActor.{Poll, Records, Subscribe}
 import com.typesafe.config.ConfigFactory
 import kafka.testkit.KafkaTestServer
-import org.apache.kafka.common.serialization.StringSerializer
+import org.apache.kafka.common.serialization.{StringDeserializer, StringSerializer}
 import org.slf4j.LoggerFactory
-import stlabs.kafka.{KafkaProducer, KafkaProducerRecord}
+import stlabs.kafka.{KafkaConsumer, KafkaProducer, KafkaProducerRecord}
 
 import scala.concurrent.duration._
 import scala.util.Random
@@ -23,15 +23,14 @@ class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with K
   }
 
   def consumerConf(topic: String): KafkaConsumerActor.Conf[String, String] = {
-    KafkaConsumerActor.Conf(
+    KafkaConsumerActor.Conf(KafkaConsumer.Conf(
       ConfigFactory.parseString(
         s"""
            |bootstrap.servers = "localhost:${kafkaServer.kafkaPort}"
            |group.id = "test"
-           |key.deserializer = "org.apache.kafka.common.serialization.StringDeserializer"
-           |value.deserializer = "org.apache.kafka.common.serialization.StringDeserializer"
            |auto.offset.reset = "earliest"
-         """.stripMargin), List(topic))
+         """.stripMargin), new StringDeserializer, new StringDeserializer),
+      List(topic))
   }
 
   "KafkaConsumerActor in self managed offsets mode" should "consume a message" in {
