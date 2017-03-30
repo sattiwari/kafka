@@ -12,6 +12,12 @@ import stlabs.kafka.{KafkaConsumer, KafkaProducer, KafkaProducerRecord}
 import scala.concurrent.duration._
 import scala.util.Random
 
+object KafkaConsumerActorSpec {
+
+  def kafkaProducer(kafkaPort: Int): KafkaProducer[String, String] =
+    KafkaProducer(new StringSerializer(), new StringSerializer(), bootstrapServers = "localhost:" + kafkaPort)
+}
+
 class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with KafkaTestServer with ImplicitSender {
 
   val log = LoggerFactory.getLogger(getClass)
@@ -21,6 +27,16 @@ class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with K
   override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
+
+  val consumerConfFromConfig: KafkaConsumer.Conf[String, String] = {
+    KafkaConsumer.Conf(
+      ConfigFactory.parseString(
+        s"""
+           | bootstrap.servers = "localhost:${kafkaServer.kafkaPort}",
+           | group.id = "test"
+           | enable.auto.commit = false
+           | auto.offset.reset = "earliest"
+        """.stripMargin), new StringDeserializer, new StringDeserializer)
 
   def consumerConf(topic: String): KafkaConsumerActor.Conf[String, String] = {
     KafkaConsumerActor.Conf(KafkaConsumer.Conf(
@@ -53,6 +69,11 @@ class KafkaConsumerActorSpec(system: ActorSystem) extends TestKit(system) with K
 
     consumer ! Confirm(None)
     expectNoMsg(5.seconds)
+
+  }
+
+  "KafkaConsumerActor different configuration types" should "consume a message successfully" in {
+
 
   }
 

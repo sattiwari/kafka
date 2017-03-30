@@ -17,8 +17,12 @@ import scala.util.{Failure, Success, Try}
 
 object KafkaConsumerActor {
 
-  case class Offsets(val offsetsMap: Map[TopicPartition, Long]) extends AnyVal {
+  case class Subscribe(offsets: Option[Offsets] = None)
+  case class Confirm(offsets: Option[Offsets] = None)
+  private case object Poll
+  case object Unsubscribe
 
+  case class Offsets(val offsetsMap: Map[TopicPartition, Long]) extends AnyVal {
     def get(topic: TopicPartition): Option[Long] = offsetsMap.get(topic)
 
     def forAllOffsets(that: Offsets)(f: (Long, Long) => Boolean): Boolean =
@@ -28,7 +32,6 @@ object KafkaConsumerActor {
 
     def toCommitMap: Map[TopicPartition, OffsetAndMetadata] =
       offsetsMap.mapValues(offset => new OffsetAndMetadata(offset))
-
   }
 
   case class Records[K: TypeTag, V: TypeTag](offsets: Offsets, records: ConsumerRecords[K, V]) {
@@ -44,16 +47,25 @@ object KafkaConsumerActor {
       else None
 
     def values: Seq[V] = records.toList.map(_.value())
-
   }
 
-//  sealed trait Command
-  case class Subscribe(offsets: Option[Offsets] = None)
-  private case object Poll
-  case object Unsubscribe
-  case class Confirm(offsets: Option[Offsets] = None)
+  object Conf {
+    def apply(config: Config): Conf = {
+      val topics = config.getStringList("consumer.topics")
+      apply(topics.toList)
+    }
+  }
 
-  private[akka] class ClientCache[K, V](unconfirmedTimeoutSecs: Long, maxBuffer: Int) {
+  case class Conf(topics: List[String],
+                 scheduleInterval: FiniteDuration = 3000.millis,
+                 unconfirmedTimeout: FiniteDuration = 3.seconds,
+                 bufferSize: Int = 8) {
+    def withConf(config: Config): Conf = {
+      this.copy(topics = config.getStringList("consumer.topics").toList)
+    }
+  }
+
+  private[akka] class ClientCache[K, V](unconfirmedTimeout: FiniteDuration, maxBuffer: Int) {
     var unconfirmed: Option[Records[K, V]] = None
     var buffer = new scala.collection.mutable.Queue[Records[K, V]]()
     var deliveryTime: Option[LocalDateTime] = None
@@ -81,7 +93,7 @@ object KafkaConsumerActor {
     def confirmationTimeout(): Boolean = {
       deliveryTime match {
         case Some(time) if unconfirmed.isDefined =>
-          time plus (unconfirmedTimeoutSecs, ChronoUnit.SECONDS) isBefore (LocalDateTime.now())
+          time plus (unconfirmedTimeout.toMillis, ChronoUnit.MILLIS) isBefore (LocalDateTime.now())
 
         case _ =>
           false
@@ -99,18 +111,15 @@ object KafkaConsumerActor {
     }
   }
 
-  case class Conf[K, V](conf: KafkaConsumer.Conf[K, V], topics: List[String])
-
-  def props[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K, V], nextActor: ActorRef) = {
-    Props(new KafkaConsumerActor[K, V](conf, nextActor))
-  }
+  def props[K: TypeTag, V: TypeTag](consumerConf: KafkaConsumer.Conf[K, V], actorConf: KafkaConsumerActor.Conf, nextActor: ActorRef) =
+    Props(new KafkaConsumerActor[K, V](consumerConf, actorConf, nextActor))
 
 }
 
-class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K, V], nextActor: ActorRef) extends Actor with ActorLogging {
+class KafkaConsumerActor[K: TypeTag, V: TypeTag](consumerConf: KafkaConsumer.Conf[K, V], actorConf: KafkaConsumerActor.Conf, nextActor: ActorRef) extends Actor with ActorLogging {
   import KafkaConsumerActor._
 
-  private val consumer = KafkaConsumer[K, V](conf.conf)
+  private val consumer = KafkaConsumer[K, V](consumerConf.conf)
   private val trackPartitions = TrackPartitions(consumer)
 
   private val clientCache: ClientCache[K, V] = new ClientCache[K, V](1, 10)
@@ -118,8 +127,8 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K
   override def receive: Receive = {
 
     case Subscribe(offsets) =>
-      log.info(s"subscribing to topics ${conf.topics}")
-      consumer.subscribe(conf.topics, trackPartitions)
+      log.info(s"subscribing to topics ${consumerConf.topics}")
+      consumer.subscribe(consumerConf.topics, trackPartitions)
       offsets.foreach(o => trackPartitions.offsets = o.offsetsMap)
       clientCache.reset()
       schedulePoll()
@@ -130,7 +139,7 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K
         log.info("message timed out, redilivering")
         sendRecords(clientCache.getRedeliveryRecords())
       }
-      if(clientCache.isFull()) log.info(s"Buffers are full. Not gonna poll. ${conf.topics}")
+      if(clientCache.isFull()) log.info(s"Buffers are full. Not gonna poll. ${consumerConf.topics}")
       else {
         poll() foreach { records =>
           clientCache.bufferRecords(records)
@@ -139,7 +148,7 @@ class KafkaConsumerActor[K: TypeTag, V: TypeTag](conf: KafkaConsumerActor.Conf[K
       clientCache.recordsForDelivery().foreach(records => sendRecords(records))
 
     case Confirm(offsets0) =>
-      log.info(s"confirm offsets ${conf.topics}, ${offsets0}")
+      log.info(s"confirm offsets ${consumerConf.topics}, ${offsets0}")
       clientCache.confirm()
       offsets0 match {
         case Some(offsets) => commitOffsets(offsets)
