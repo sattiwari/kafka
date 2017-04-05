@@ -30,6 +30,9 @@
 * Rebalance listeners
 * Seek and exactly once processing
 
+## Ops
+* Replication within Kafka cluster
+
 
 
 
