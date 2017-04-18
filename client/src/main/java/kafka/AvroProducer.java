@@ -1,59 +1,50 @@
 package kafka;
 
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 
 import java.util.Properties;
 
-/**
- * Created by stiwari on 4/18/2017 AD.
- */
 public class AvroProducer {
-    public Properties kafkaProps;
-    public KafkaProducer producer;
 
-    public AvroProducer() {
-        kafkaProps = new Properties();
-        kafkaProps.put("bootstrap.servers", "localhost:9092");
 
-        kafkaProps.put("key.serializer", "io.confluent.kafka.serializers.KafkaAvroSerializer");
-        kafkaProps.put("value.serializer", "io.confluent.kafka.serializers.KafkaAvroSerializer");
+    public static void main(String[] args) {
+        Properties props = new Properties();
 
-//        kafkaProps.put("schema.registry.url", schemaUrl);
+        props.put("bootstrap.servers", "localhost:9092");
+        // avro serializer for key and value
+        props.put("key.serializer", "io.confluent.kafka.serializers.KafkaAvroSerializer");
+        props.put("value.serializer", "io.confluent.kafka.serializers.KafkaAvroSerializer");
 
-        String topic = "customerContacts";
-        int wait = 500;
+        //as avro uses Schema Registry to store the avro schema, we have to specify where
+        //it is located.
+        props.put("schema.registry.url", ""); // Schema Registry url
 
-        producer = new KafkaProducer<String, Customer>(kafkaProps);
-    }
+        String schemaString = "{\"namespace\": \"test.avro\""+
+                "\"name\" : \"Test\"," +
 
-    public void fireAndForget(String topic, String key, String value) {
+                "\"fields\": [" + "{\"name\": \"id\", \"type\": \"int\"},"
+                + "{\"name\": \"name\", \"type\": \"string\"},"
+                + "]}";
 
-        ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, key, value);
-        try {
-            producer.send(record);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+        Producer <String,GenericRecord> producer = new KafkaProducer<String,GenericRecord>(props);
 
-    public void sendSynchronous(String topic, String key, String value) {
+        Schema.Parser parser = new Schema.Parser();
+        Schema schema = parser.parse(schemaString);
 
-        ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, key, value);
-        try {
-            RecordMetadata metaData = (RecordMetadata) producer.send(record).get();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+        int testId =1 ;
+        while(testId < 10) {
 
-    public void sendAsynchronous(String topic, String key, String value){
-        ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, key, value);
-        try {
-            producer.send(record, new ProducerCallBack());
-        } catch (Exception e) {
-            e.printStackTrace();
+            GenericRecord test = new GenericData.Record(schema);
+            test.put("id", testId);
+            test.put("name", "nameTest"+testId);
+
+            ProducerRecord<String,GenericRecord> data = new ProducerRecord<String,GenericRecord>("test","nameTest"+testId,test);
+            producer.send(data);
         }
     }
 }
