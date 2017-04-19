@@ -1,4 +1,4 @@
-package kafka;
+package kafka.producer;
 
 import java.util.List;
 import java.util.Map;

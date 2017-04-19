@@ -1,4 +1,4 @@
-package kafka;
+package kafka.producer;
 
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Serializer;

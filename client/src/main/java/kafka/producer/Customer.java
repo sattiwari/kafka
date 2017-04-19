@@ -1,4 +1,4 @@
-package kafka;
+package kafka.producer;
 
 /**
  * Created by stiwari on 4/18/2017 AD.
